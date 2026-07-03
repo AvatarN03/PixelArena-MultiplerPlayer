@@ -3,24 +3,24 @@ const c = canvas.getContext('2d')
 
 const socket = io()
 
-socket.on("connect", () => {
-    console.log("Connected", socket.id);
-});
+socket.on('connect', () => {
+  console.log('Connected', socket.id)
+})
 
-socket.on("disconnect", (reason) => {
-    console.log("Disconnected:", reason);
-});
+socket.on('disconnect', (reason) => {
+  console.log('Disconnected:', reason)
+})
 
-socket.on("connect_error", (err) => {
-    console.error(err);
-});
+socket.on('connect_error', (err) => {
+  console.error(err)
+})
 
 const scoreEl = document.querySelector('#scoreEl')
 
 const devicePixelRatio = window.devicePixelRatio || 1
 
 canvas.width = devicePixelRatio * 1024
-canvas.height = devicePixelRatio * 576;
+canvas.height = devicePixelRatio * 576
 
 c.scale(devicePixelRatio, devicePixelRatio)
 
@@ -28,14 +28,11 @@ const x = canvas.width / 2
 const y = canvas.height / 2
 
 const frontEndPlayers = {}
-const frontEndProjectiles = {};
+const frontEndProjectiles = {}
 
-
-
-
-socket.on("updateProjectiles", ((backEndProjectiles)=>{
-  for(const id in backEndProjectiles){
-    const backEndProjectile = backEndProjectiles[id];
+socket.on('updateProjectiles', (backEndProjectiles) => {
+  for (const id in backEndProjectiles) {
+    const backEndProjectile = backEndProjectiles[id]
     if (!frontEndProjectiles[id]) {
       frontEndProjectiles[id] = new Projectile({
         x: backEndProjectile.x,
@@ -44,14 +41,7 @@ socket.on("updateProjectiles", ((backEndProjectiles)=>{
         color: frontEndPlayers[backEndProjectile.playerId]?.color,
         velocity: backEndProjectile.velocity
       })
-
-  
-      
-    }else{
-    
-
-
-
+    } else {
       // frontEndProjectiles[id].x = backEndProjectile.x
       // frontEndProjectiles[id].y = backEndProjectile.y
       frontEndProjectiles[id].x += backEndProjectiles[id].velocity.x
@@ -63,7 +53,7 @@ socket.on("updateProjectiles", ((backEndProjectiles)=>{
       delete frontEndProjectiles[frontEndProjectile]
     }
   }
-}))
+})
 
 socket.on('updatePlayers', (backEndPlayers) => {
   for (const id in backEndPlayers) {
@@ -77,20 +67,15 @@ socket.on('updatePlayers', (backEndPlayers) => {
         color: backEndPlayer.color,
         username: backEndPlayer.username
       })
-         document.querySelector("#playerLabels").innerHTML += `<div data-id="${id}" data-score="${backEndPlayer.score}"> ${backEndPlayer.username}: ${backEndPlayer.score}</div>`
-    
+      document.querySelector('#playerLabels').innerHTML +=
+        `<div data-id="${id}" data-score="${backEndPlayer.score}"> ${backEndPlayer.username}: ${backEndPlayer.score}</div>`
     } else {
-
-
-      document.querySelector(
-        `div[data-id="${id}"]`
-      ).innerHTML = `${backEndPlayer.username}: ${backEndPlayer.score}`
-
+      document.querySelector(`div[data-id="${id}"]`).innerHTML =
+        `${backEndPlayer.username}: ${backEndPlayer.score}`
 
       document
-      .querySelector(`div[data-id="${id}"]`)
-      .setAttribute('data-score', backEndPlayer.score)
-
+        .querySelector(`div[data-id="${id}"]`)
+        .setAttribute('data-score', backEndPlayer.score)
 
       //sort the scores of the players in UI
       const parentDiv = document.querySelector('#playerLabels')
@@ -119,35 +104,34 @@ socket.on('updatePlayers', (backEndPlayers) => {
       }
 
       /// for the current player
-      if( id === socket.id){
-      frontEndPlayers[id].x = backEndPlayer.x
-      frontEndPlayers[id].y = backEndPlayer.y
+      if (id === socket.id) {
+        frontEndPlayers[id].x = backEndPlayer.x
+        frontEndPlayers[id].y = backEndPlayer.y
 
-      const lastIndex = playerInputs.findIndex(input=>{
-        return  backEndPlayer.sequenceNumber === input.sequenceNumber
-      })
+        const lastIndex = playerInputs.findIndex((input) => {
+          return backEndPlayer.sequenceNumber === input.sequenceNumber
+        })
 
-      if(lastIndex > -1){
-         playerInputs.splice(0, lastIndex+1)
+        if (lastIndex > -1) {
+          playerInputs.splice(0, lastIndex + 1)
+        }
+
+        playerInputs.forEach((input) => {
+          frontEndPlayers[id].target.x += input.dx
+          frontEndPlayers[id].target.y += input.dy
+        })
+      } else {
+        /// for al other players
+        frontEndPlayers[id].x = backEndPlayer.x
+        frontEndPlayers[id].y = backEndPlayer.y
+
+        gsap.to(frontEndPlayers[id], {
+          x: backEndPlayer.x,
+          y: backEndPlayer.y,
+          duration: 0.015,
+          ease: 'linear'
+        })
       }
-
-      playerInputs.forEach(input=>{
-        frontEndPlayers[id].target.x += input.dx
-        frontEndPlayers[id].target.y += input.dy
-      })
-    }else{
-      /// for al other players
-      frontEndPlayers[id].x = backEndPlayer.x
-      frontEndPlayers[id].y = backEndPlayer.y
-
-      gsap.to(frontEndPlayers[id], {
-        x: backEndPlayer.x,
-        y: backEndPlayer.y,
-        duration: .015,
-        ease:'linear'
-        
-      })
-    }
     }
 
     for (const id in frontEndPlayers) {
@@ -155,9 +139,9 @@ socket.on('updatePlayers', (backEndPlayers) => {
         const divToDelete = document.querySelector(`div[data-id="${id}"]`)
         divToDelete.parentNode.removeChild(divToDelete)
 
-      if (id === socket.id) {
-        document.querySelector('#usernameForm').style.display = 'block'
-      }
+        if (id === socket.id) {
+          document.querySelector('#usernameForm').style.display = 'block'
+        }
         delete frontEndPlayers[id]
       }
     }
@@ -186,7 +170,6 @@ function animate() {
   }
   for (const id in frontEndProjectiles) {
     const frontEndProjectile = frontEndProjectiles[id]
-    
 
     frontEndProjectile.draw()
   }
@@ -220,7 +203,7 @@ const keys = {
 }
 
 setInterval(() => {
-  if (!frontEndPlayers[socket.id]) return;
+  if (!frontEndPlayers[socket.id]) return
   if (keys.w.pressed) {
     sequenceNumber++
     playerInputs.push({ sequenceNumber, dx: 0, dy: -SPEED })
@@ -301,13 +284,59 @@ window.addEventListener('keyup', (e) => {
   }
 })
 
+function resizeCanvas() {
+  const container = document.querySelector('.game-container')
+  const rect = container.getBoundingClientRect()
+  const dpr = window.devicePixelRatio || 1
 
-document.querySelector("#usernameForm").addEventListener("submit", (e)=>{
+  canvas.width = rect.width * dpr
+  canvas.height = rect.height * dpr
+
+  c.setTransform(1, 0, 0, 1, 0, 0) // reset before rescaling
+  c.scale(dpr, dpr)
+
+  // expose logical (CSS) size for your game logic to use
+  canvas.gameWidth = rect.width
+  canvas.gameHeight = rect.height
+}
+
+window.addEventListener('resize', resizeCanvas)
+window.addEventListener('orientationchange', () =>
+  setTimeout(resizeCanvas, 100)
+)
+resizeCanvas();
+const keyMap = { up: 'w', down: 's', left: 'a', right: 'd' };
+
+document.querySelectorAll('.dpad-btn').forEach(btn => {
+  const key = keyMap[btn.dataset.dir];
+
+  const press = (e) => {
+    e.preventDefault();
+    window.dispatchEvent(new KeyboardEvent('keydown', { key }));
+  };
+  const release = (e) => {
+    e.preventDefault();
+    window.dispatchEvent(new KeyboardEvent('keyup', { key }));
+  };
+
+  btn.addEventListener('touchstart', press);
+  btn.addEventListener('touchend', release);
+  btn.addEventListener('mousedown', press);   // for testing on desktop devtools
+  btn.addEventListener('mouseup', release);
+});
+
+document.querySelector('.shoot-btn').addEventListener('touchstart', (e) => {
   e.preventDefault();
-  document.querySelector("#usernameForm").style.display = "none"
-  console.log(document.querySelector("#usernameInput").value)
-  socket.emit("initGame", {
-    username:document.querySelector("#usernameInput").value,
-    width:canvas.width, height: canvas.height, 
+  canvas.dispatchEvent(new MouseEvent('click'));
+});
+
+document.querySelector('#usernameForm').addEventListener('submit', (e) => {
+  e.preventDefault()
+  document.querySelector('#username-overlay').style.display = 'none'
+  console.log(document.querySelector('#usernameInput').value)
+  socket.emit('initGame', {
+    username: document.querySelector('#usernameInput').value,
+    width: canvas.width,
+    height: canvas.height
   })
 })
