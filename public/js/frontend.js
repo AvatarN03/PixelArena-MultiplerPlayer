@@ -1,6 +1,14 @@
 const canvas = document.querySelector('canvas')
 const c = canvas.getContext('2d')
 
+const WORLD_WIDTH = 1024
+const WORLD_HEIGHT = 576
+const dpr = window.devicePixelRatio || 1
+
+canvas.width = WORLD_WIDTH * dpr
+canvas.height = WORLD_HEIGHT * dpr
+c.scale(dpr, dpr)
+
 const socket = io()
 
 socket.on('connect', () => {
@@ -9,10 +17,28 @@ socket.on('connect', () => {
 
 socket.on('disconnect', (reason) => {
   console.log('Disconnected:', reason)
+  showToast(`You got disconnected: ${reason}`, 'danger')
+
+  // Reset live players
+  document.querySelector('#livePlayers').textContent = '0'
+
+  // Remove all players from the canvas
+  Object.keys(frontEndPlayers).forEach((id) => delete frontEndPlayers[id])
+
+  // Clear leaderboard
+  document.querySelector('#playerLabels').innerHTML = ''
+
+  // Show username overlay again
+  document.querySelector('#username-overlay').style.display = 'flex'
 })
 
 socket.on('connect_error', (err) => {
   console.error(err)
+
+  showToast('Unable to connect to the server.', 'danger')
+
+  document.querySelector('#livePlayers').textContent = '0'
+  document.querySelector('#playerLabels').innerHTML = ''
 })
 
 const scoreEl = document.querySelector('#scoreEl')
@@ -287,27 +313,26 @@ window.addEventListener('keyup', (e) => {
   }
 })
 
-function resizeCanvas() {
-  const container = document.querySelector('.game-container')
-  const rect = container.getBoundingClientRect()
-  const dpr = window.devicePixelRatio || 1
+// function resizeCanvas() {
+//   const container = document.querySelector('.game-container')
+//   const WORLD_WIDTH = 1024
+//   const WORLD_HEIGHT = 576
+//   const dpr = window.devicePixelRatio || 1
 
-  canvas.width = rect.width * dpr
-  canvas.height = rect.height * dpr
+//   canvas.width = WORLD_WIDTH * dpr
+//   canvas.height = WORLD_HEIGHT * dpr
+//   c.scale(dpr, dpr)
 
-  c.setTransform(1, 0, 0, 1, 0, 0) // reset before rescaling
-  c.scale(dpr, dpr)
+//   // expose logical (CSS) size for your game logic to use
+//   canvas.gameWidth = rect.width
+//   canvas.gameHeight = rect.height
+// }
 
-  // expose logical (CSS) size for your game logic to use
-  canvas.gameWidth = rect.width
-  canvas.gameHeight = rect.height
-}
-
-window.addEventListener('resize', resizeCanvas)
-window.addEventListener('orientationchange', () =>
-  setTimeout(resizeCanvas, 100)
-)
-resizeCanvas()
+// window.addEventListener('resize', resizeCanvas)
+// window.addEventListener('orientationchange', () =>
+//   setTimeout(resizeCanvas, 100)
+// )
+// resizeCanvas()
 const keyMap = { up: 'w', down: 's', left: 'a', right: 'd' }
 const codeMap = { up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD' }
 let lastDir = { dx: 1, dy: 0 } // default: aim right
@@ -340,34 +365,59 @@ document.querySelectorAll('.dpad-btn').forEach((btn) => {
   btn.addEventListener('mouseup', release)
 })
 
-document.querySelector('.shoot-btn').addEventListener(
+canvas.addEventListener(
   'touchstart',
   (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-
-    const player = frontEndPlayers[socket.id]
-    const rect = canvas.getBoundingClientRect()
-
-    // aim 100px out from the player, in the last direction moved
-    const clientX = player
-      ? rect.left + player.x + lastDir.dx * 100
-      : rect.left + rect.width / 2
-    const clientY = player
-      ? rect.top + player.y + lastDir.dy * 100
-      : rect.top + rect.height / 2
-
-    canvas.dispatchEvent(
-      new MouseEvent('click', {
-        bubbles: true,
-        cancelable: true,
-        clientX,
-        clientY
-      })
-    )
+    e.preventDefault() // stops the "ghost click" mobile browsers fire after touch
+    const touch = e.touches[0]
+    fireShot(touch.clientX, touch.clientY)
   },
   { passive: false }
 )
+
+socket.on('eliminated', ({ killedBy }) => {
+  showToast(`💀 You were eliminated by ${killedBy}`, 'danger')
+  document.querySelector('#username-overlay').style.display = 'flex' // fixed: overlay, not form
+})
+
+socket.on('killFeed', ({ killer, victim }) => {
+  showToast(`${killer} eliminated ${victim}`, 'info')
+})
+
+function showToast(message, type = 'info') {
+  const toast = document.createElement('div')
+  toast.className = `toast toast-${type}`
+  toast.textContent = message
+
+  // Count existing toasts
+  const existingToasts = document.querySelectorAll('.toast')
+
+  // Place each new toast below the previous one
+  toast.style.top = `${20 + existingToasts.length * 60}px`
+
+  document.body.appendChild(toast)
+
+  requestAnimationFrame(() => {
+    toast.classList.add('toast-show')
+  })
+
+  setTimeout(() => {
+    toast.classList.remove('toast-show')
+
+    toast.addEventListener(
+      'transitionend',
+      () => {
+        toast.remove()
+
+        // Reposition remaining toasts upward
+        document.querySelectorAll('.toast').forEach((t, index) => {
+          t.style.top = `${20 + index * 60}px`
+        })
+      },
+      { once: true }
+    )
+  }, 3000)
+}
 
 document.querySelector('#usernameForm').addEventListener('submit', (e) => {
   e.preventDefault()
@@ -375,7 +425,8 @@ document.querySelector('#usernameForm').addEventListener('submit', (e) => {
   console.log(document.querySelector('#usernameInput').value)
   socket.emit('initGame', {
     username: document.querySelector('#usernameInput').value,
-    width: canvas.width,
-    height: canvas.height
+    width: WORLD_WIDTH,
+    height: WORLD_HEIGHT
   })
+  showToast(`You joined the Game!!`, 'show')
 })
