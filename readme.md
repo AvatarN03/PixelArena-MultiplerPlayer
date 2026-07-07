@@ -1,4 +1,3 @@
-
 # PixelArena
 
 ![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=node.js&logoColor=white)
@@ -14,7 +13,19 @@ PixelArea demonstrates a complete **server-authoritative** multiplayer architect
 
 **Live Demo:** [🌐 https://online-multiplayer-js.onrender.com](https://online-multiplayer-js.onrender.com)
 
-*(Add a gameplay GIF here - highly recommended)*
+## Screenshots
+
+### Start Screen
+![Start Screen](./public/img/hero1.png)
+
+### In Game
+![In Game](./public/img/hero2.png)
+
+### In Mobile Mode
+![In Game](./public/img/hero4.png)
+
+### Game Over
+![Game Over](./public/img/hero3.png)
 
 ## Features
 
@@ -34,6 +45,7 @@ PixelArea demonstrates a complete **server-authoritative** multiplayer architect
 ## Tech Stack
 
 ### Frontend
+
 - HTML5
 - CSS3
 - Vanilla JavaScript
@@ -41,11 +53,13 @@ PixelArea demonstrates a complete **server-authoritative** multiplayer architect
 - GSAP (for smooth interpolation)
 
 ### Backend
+
 - Node.js
 - Express.js
 - Socket.IO
 
 ### Deployment
+
 - Render
 - GitHub Actions (keep-alive cron job)
 
@@ -69,6 +83,7 @@ Player Input → Client Prediction → Socket.IO → Node.js Server
 ```
 
 **Key Concepts Implemented:**
+
 - **Client-side Prediction**: Instant local movement feedback
 - **Server Reconciliation**: Correcting client state using sequence numbers
 - **Interpolation**: Smooth rendering of remote players
@@ -133,9 +148,10 @@ Deployed on **Render**. A GitHub Actions workflow pings the server every 15 minu
 - Smooth interpolation techniques
 - Deployment and server keep-alive strategies
 
-
 **License**: MIT  
 **Author**: Prashanth Naidu  
 **GitHub**: [AvatarN03](https://github.com/AvatarN03)
+
 ##
+
 ##

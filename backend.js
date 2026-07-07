@@ -45,23 +45,45 @@ const WORLD_HEIGHT = 576
 
 
 io.on('connection', (socket) => {
+  let lastShot = 0;
+  let lastSpamWarning = 0;
+
   console.log('A user connected:', socket.id)
 
   socket.on('shoot', ({ x, y, angle }) => {
-    if (!backEndPlayers[socket.id]) return
-    projectileId++
-    const velocity = {
-      x: Math.cos(angle) * 5,
-      y: Math.sin(angle) * 5
+  if (!backEndPlayers[socket.id]) return
+
+  const now = Date.now()
+
+  // Max 10 shots/sec
+  if (now - lastShot < 100) {
+    // Only warn once every 2 seconds
+    if (now - lastSpamWarning > 2000) {
+      socket.emit('rateLimit', {
+        message: '⚠️ Shooting too fast!'
+      })
+      lastSpamWarning = now
     }
 
-    backEndProjectiles[projectileId] = {
-      x,
-      y,
-      velocity,
-      playerId: socket.id
-    }
-  })
+    return
+  }
+
+  lastShot = now
+
+  projectileId++
+
+  const velocity = {
+    x: Math.cos(angle) * 5,
+    y: Math.sin(angle) * 5
+  }
+
+  backEndProjectiles[projectileId] = {
+    x,
+    y,
+    velocity,
+    playerId: socket.id
+  }
+})
 
   //Broadcast
   io.emit('updatePlayers', backEndPlayers)

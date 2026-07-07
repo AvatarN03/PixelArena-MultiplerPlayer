@@ -177,6 +177,10 @@ socket.on('updatePlayers', (backEndPlayers) => {
   )
 })
 
+socket.on('rateLimit', ({ message }) => {
+  showToast(message, 'danger')
+})
+
 let animationId
 
 function animate() {
