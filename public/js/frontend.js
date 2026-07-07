@@ -42,8 +42,6 @@ socket.on('updateProjectiles', (backEndProjectiles) => {
         velocity: backEndProjectile.velocity
       })
     } else {
-      // frontEndProjectiles[id].x = backEndProjectile.x
-      // frontEndProjectiles[id].y = backEndProjectile.y
       frontEndProjectiles[id].x += backEndProjectiles[id].velocity.x
       frontEndProjectiles[id].y += backEndProjectiles[id].velocity.y
     }
@@ -146,6 +144,11 @@ socket.on('updatePlayers', (backEndPlayers) => {
       }
     }
   }
+  const totalPlayers = Object.keys(backEndPlayers).length
+  document.querySelector('#livePlayers').textContent = Math.max(
+    0,
+    totalPlayers - 1
+  )
 })
 
 let animationId
@@ -304,31 +307,67 @@ window.addEventListener('resize', resizeCanvas)
 window.addEventListener('orientationchange', () =>
   setTimeout(resizeCanvas, 100)
 )
-resizeCanvas();
-const keyMap = { up: 'w', down: 's', left: 'a', right: 'd' };
+resizeCanvas()
+const keyMap = { up: 'w', down: 's', left: 'a', right: 'd' }
+const codeMap = { up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD' }
+let lastDir = { dx: 1, dy: 0 } // default: aim right
 
-document.querySelectorAll('.dpad-btn').forEach(btn => {
-  const key = keyMap[btn.dataset.dir];
+const dirVectors = {
+  up: { dx: 0, dy: -1 },
+  down: { dx: 0, dy: 1 },
+  left: { dx: -1, dy: 0 },
+  right: { dx: 1, dy: 0 }
+}
+
+document.querySelectorAll('.dpad-btn').forEach((btn) => {
+  const key = keyMap[btn.dataset.dir]
+  const code = codeMap[btn.dataset.dir]
+  const dir = dirVectors[btn.dataset.dir]
 
   const press = (e) => {
-    e.preventDefault();
-    window.dispatchEvent(new KeyboardEvent('keydown', { key }));
-  };
+    e.preventDefault()
+    lastDir = dir
+    window.dispatchEvent(new KeyboardEvent('keydown', { key, code }))
+  }
   const release = (e) => {
-    e.preventDefault();
-    window.dispatchEvent(new KeyboardEvent('keyup', { key }));
-  };
+    e.preventDefault()
+    window.dispatchEvent(new KeyboardEvent('keyup', { key, code }))
+  }
 
-  btn.addEventListener('touchstart', press);
-  btn.addEventListener('touchend', release);
-  btn.addEventListener('mousedown', press);   // for testing on desktop devtools
-  btn.addEventListener('mouseup', release);
-});
+  btn.addEventListener('touchstart', press, { passive: false })
+  btn.addEventListener('touchend', release, { passive: false })
+  btn.addEventListener('mousedown', press)
+  btn.addEventListener('mouseup', release)
+})
 
-document.querySelector('.shoot-btn').addEventListener('touchstart', (e) => {
-  e.preventDefault();
-  canvas.dispatchEvent(new MouseEvent('click'));
-});
+document.querySelector('.shoot-btn').addEventListener(
+  'touchstart',
+  (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    const player = frontEndPlayers[socket.id]
+    const rect = canvas.getBoundingClientRect()
+
+    // aim 100px out from the player, in the last direction moved
+    const clientX = player
+      ? rect.left + player.x + lastDir.dx * 100
+      : rect.left + rect.width / 2
+    const clientY = player
+      ? rect.top + player.y + lastDir.dy * 100
+      : rect.top + rect.height / 2
+
+    canvas.dispatchEvent(
+      new MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+        clientX,
+        clientY
+      })
+    )
+  },
+  { passive: false }
+)
 
 document.querySelector('#usernameForm').addEventListener('submit', (e) => {
   e.preventDefault()
