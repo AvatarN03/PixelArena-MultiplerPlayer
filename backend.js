@@ -39,68 +39,65 @@ app.get('/api/cron', async (req, res) => {
 const backEndPlayers = {}
 
 const backEndProjectiles = {}
-let projectileId = 0;
+let projectileId = 0
 const WORLD_WIDTH = 1024
 const WORLD_HEIGHT = 576
 
-
 io.on('connection', (socket) => {
-  let lastShot = 0;
-  let lastSpamWarning = 0;
+  let lastShot = 0
+  let lastSpamWarning = 0
 
   console.log('A user connected:', socket.id)
 
   socket.on('shoot', ({ x, y, angle }) => {
-  if (!backEndPlayers[socket.id]) return
+    if (!backEndPlayers[socket.id]) return
 
-  const now = Date.now()
+    const now = Date.now()
 
-  // Max 10 shots/sec
-  if (now - lastShot < 100) {
-    // Only warn once every 2 seconds
-    if (now - lastSpamWarning > 2000) {
-      socket.emit('rateLimit', {
-        message: '⚠️ Shooting too fast!'
-      })
-      lastSpamWarning = now
+    // Max 10 shots/sec
+    if (now - lastShot < 100) {
+      // Only warn once every 2 seconds
+      if (now - lastSpamWarning > 2000) {
+        socket.emit('rateLimit', {
+          message: '⚠️ Shooting too fast!'
+        })
+        lastSpamWarning = now
+      }
+
+      return
     }
 
-    return
-  }
+    lastShot = now
 
-  lastShot = now
+    projectileId++
 
-  projectileId++
+    const velocity = {
+      x: Math.cos(angle) * 5,
+      y: Math.sin(angle) * 5
+    }
 
-  const velocity = {
-    x: Math.cos(angle) * 5,
-    y: Math.sin(angle) * 5
-  }
+    backEndProjectiles[projectileId] = {
+      x,
+      y,
+      velocity,
+      playerId: socket.id
+    }
+  })
 
-  backEndProjectiles[projectileId] = {
-    x,
-    y,
-    velocity,
-    playerId: socket.id
-  }
-})
+  // //Broadcast
+  // io.emit('updatePlayers', backEndPlayers)
 
-  //Broadcast
-  io.emit('updatePlayers', backEndPlayers)
-
-  socket.on('initGame', ({ width, height, username }) => {
+  socket.on('initGame', ({ username }) => {
+    // width/height no longer needed here
     backEndPlayers[socket.id] = {
-      x: 1024 * Math.random(),
-      y: 576 * Math.random(),
+      x: WORLD_WIDTH * Math.random(),
+      y: WORLD_HEIGHT * Math.random(),
       color: `hsl(${360 * Math.random()},100%,50%)`,
       sequenceNumber: 0,
       score: 0,
       username,
-      canvas: {
-        width,
-        height
-      },
       radius: 10
+      // canvas field removed — no longer used anywhere
     }
 
     io.emit('updatePlayers', backEndPlayers)
@@ -165,11 +162,9 @@ setInterval(() => {
 
       const PROJECTILE_RADIUS = 5
       if (
-        backEndProjectiles[id].x - PROJECTILE_RADIUS >=
-          backEndPlayers[backEndProjectiles[id].playerId]?.canvas?.width ||
+        backEndProjectiles[id].x - PROJECTILE_RADIUS >= WORLD_WIDTH ||
         backEndProjectiles[id].x + PROJECTILE_RADIUS <= 0 ||
-        backEndProjectiles[id].y - PROJECTILE_RADIUS >=
-          backEndPlayers[backEndProjectiles[id].playerId]?.canvas?.height ||
+        backEndProjectiles[id].y - PROJECTILE_RADIUS >= WORLD_HEIGHT ||
         backEndProjectiles[id].y + PROJECTILE_RADIUS <= 0
       ) {
         delete backEndProjectiles[id]
@@ -213,9 +208,9 @@ setInterval(() => {
     io.emit('updateProjectiles', backEndProjectiles)
     io.emit('updatePlayers', backEndPlayers)
   } catch (error) {
-    console.error('Ticker error:', err)
+    console.error('Ticker error:', error)
   }
-}, 15)
+}, 50)
 
 server.listen(port, () => {
   console.log(`Server running at ${port}`)

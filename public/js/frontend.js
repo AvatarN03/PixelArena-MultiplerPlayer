@@ -3,11 +3,18 @@ const c = canvas.getContext('2d')
 
 const WORLD_WIDTH = 1024
 const WORLD_HEIGHT = 576
+const PLAYER_RADIUS = 10
 const dpr = window.devicePixelRatio || 1
 
 canvas.width = WORLD_WIDTH * dpr
 canvas.height = WORLD_HEIGHT * dpr
 c.scale(dpr, dpr)
+
+function clampPosition(pos) {
+  pos.x = Math.max(PLAYER_RADIUS, Math.min(WORLD_WIDTH - PLAYER_RADIUS, pos.x))
+  pos.y = Math.max(PLAYER_RADIUS, Math.min(WORLD_HEIGHT - PLAYER_RADIUS, pos.y))
+  return pos
+}
 
 const socket = io()
 
@@ -19,39 +26,21 @@ socket.on('disconnect', (reason) => {
   console.log('Disconnected:', reason)
   showToast(`You got disconnected: ${reason}`, 'danger')
 
-  // Reset live players
   document.querySelector('#livePlayers').textContent = '0'
-
-  // Remove all players from the canvas
   Object.keys(frontEndPlayers).forEach((id) => delete frontEndPlayers[id])
-
-  // Clear leaderboard
   document.querySelector('#playerLabels').innerHTML = ''
-
-  // Show username overlay again
   document.querySelector('#username-overlay').style.display = 'flex'
+  Object.keys(frontEndProjectiles).forEach((id) => {
+    delete frontEndProjectiles[id]
+  })
 })
 
 socket.on('connect_error', (err) => {
   console.error(err)
-
   showToast('Unable to connect to the server.', 'danger')
-
   document.querySelector('#livePlayers').textContent = '0'
   document.querySelector('#playerLabels').innerHTML = ''
 })
-
-const scoreEl = document.querySelector('#scoreEl')
-
-const devicePixelRatio = window.devicePixelRatio || 1
-
-canvas.width = devicePixelRatio * 1024
-canvas.height = devicePixelRatio * 576
-
-c.scale(devicePixelRatio, devicePixelRatio)
-
-const x = canvas.width / 2
-const y = canvas.height / 2
 
 const frontEndPlayers = {}
 const frontEndProjectiles = {}
@@ -101,33 +90,23 @@ socket.on('updatePlayers', (backEndPlayers) => {
         .querySelector(`div[data-id="${id}"]`)
         .setAttribute('data-score', backEndPlayer.score)
 
-      //sort the scores of the players in UI
       const parentDiv = document.querySelector('#playerLabels')
       const childDivs = Array.from(parentDiv.querySelectorAll('div'))
 
       childDivs.sort((a, b) => {
         const scoreA = Number(a.getAttribute('data-score'))
         const scoreB = Number(b.getAttribute('data-score'))
-
         return scoreB - scoreA
       })
 
-      // removes old elements
-      childDivs.forEach((div) => {
-        parentDiv.removeChild(div)
-      })
-
-      // adds sorted elements
-      childDivs.forEach((div) => {
-        parentDiv.appendChild(div)
-      })
+      childDivs.forEach((div) => parentDiv.removeChild(div))
+      childDivs.forEach((div) => parentDiv.appendChild(div))
 
       frontEndPlayers[id].target = {
         x: backEndPlayer.x,
         y: backEndPlayer.y
       }
 
-      /// for the current player
       if (id === socket.id) {
         frontEndPlayers[id].x = backEndPlayer.x
         frontEndPlayers[id].y = backEndPlayer.y
@@ -144,24 +123,22 @@ socket.on('updatePlayers', (backEndPlayers) => {
           frontEndPlayers[id].target.x += input.dx
           frontEndPlayers[id].target.y += input.dy
         })
+        clampPosition(frontEndPlayers[id].target)
       } else {
-        /// for al other players
         frontEndPlayers[id].x = backEndPlayer.x
         frontEndPlayers[id].y = backEndPlayer.y
 
-        gsap.to(frontEndPlayers[id], {
+        frontEndPlayers[id].target = {
           x: backEndPlayer.x,
-          y: backEndPlayer.y,
-          duration: 0.015,
-          ease: 'linear'
-        })
+          y: backEndPlayer.y
+        }
       }
     }
 
     for (const id in frontEndPlayers) {
       if (!backEndPlayers[id]) {
         const divToDelete = document.querySelector(`div[data-id="${id}"]`)
-        divToDelete.parentNode.removeChild(divToDelete)
+        divToDelete?.parentNode.removeChild(divToDelete)
 
         if (id === socket.id) {
           document.querySelector('#usernameForm').style.display = 'block'
@@ -180,118 +157,101 @@ socket.on('updatePlayers', (backEndPlayers) => {
 socket.on('rateLimit', ({ message }) => {
   showToast(message, 'danger')
 })
+const SPEED = 5
+const playerInputs = []
+let sequenceNumber = 0
 
-let animationId
+
 
 function animate() {
-  animationId = requestAnimationFrame(animate)
-  // c.fillStyle = 'rgba(0, 0, 0, 0.1)'
-
+  requestAnimationFrame(animate)
   c.clearRect(0, 0, canvas.width, canvas.height)
+  if(sequenceNumber > 100000) {
+    sequenceNumber = 0
+  }
 
   for (const id in frontEndPlayers) {
     const frontEndPlayer = frontEndPlayers[id]
-    // linear interpolation
     if (frontEndPlayer.target) {
       frontEndPlayers[id].x +=
         (frontEndPlayers[id].target.x - frontEndPlayers[id].x) * 0.5
       frontEndPlayers[id].y +=
         (frontEndPlayers[id].target.y - frontEndPlayers[id].y) * 0.5
     }
-
     frontEndPlayer.draw()
   }
   for (const id in frontEndProjectiles) {
-    const frontEndProjectile = frontEndProjectiles[id]
-
-    frontEndProjectile.draw()
+    frontEndProjectiles[id].draw()
   }
-  // its better to loop from the end instead of beginning in projectileArray
-  // for(let i=frontEndProjectiles.length-1; i >=0; i--){
-  //   const frontEndProjectile = frontEndProjectiles[i];
-  //   frontEndProjectile.update();
-
-  // }
 }
-
 animate()
 
-const SPEED = 5
-const playerInputs = []
-let sequenceNumber = 0
 
 const keys = {
-  w: {
-    pressed: false
-  },
-  a: {
-    pressed: false
-  },
-  s: {
-    pressed: false
-  },
-  d: {
-    pressed: false
-  }
+  w: { pressed: false },
+  a: { pressed: false },
+  s: { pressed: false },
+  d: { pressed: false }
 }
 
 setInterval(() => {
   if (!frontEndPlayers[socket.id]) return
+  const now = Date.now()
+
   if (keys.w.pressed) {
     sequenceNumber++
-    playerInputs.push({ sequenceNumber, dx: 0, dy: -SPEED })
+    playerInputs.push({ sequenceNumber, dx: 0, dy: -SPEED, timestamp: now })
     frontEndPlayers[socket.id].y -= SPEED
+    clampPosition(frontEndPlayers[socket.id])
     socket.emit('keydown', { code: 'KeyW', sequenceNumber })
   }
   if (keys.a.pressed) {
     sequenceNumber++
-    playerInputs.push({ sequenceNumber, dx: -SPEED, dy: 0 })
+    playerInputs.push({ sequenceNumber, dx: -SPEED, dy: 0, timestamp: now })
     frontEndPlayers[socket.id].x -= SPEED
+    clampPosition(frontEndPlayers[socket.id])
     socket.emit('keydown', { code: 'KeyA', sequenceNumber })
   }
   if (keys.s.pressed) {
     sequenceNumber++
-    playerInputs.push({ sequenceNumber, dx: 0, dy: SPEED })
+    playerInputs.push({ sequenceNumber, dx: 0, dy: SPEED, timestamp: now })
     frontEndPlayers[socket.id].y += SPEED
+    clampPosition(frontEndPlayers[socket.id])
     socket.emit('keydown', { code: 'KeyS', sequenceNumber })
   }
   if (keys.d.pressed) {
     sequenceNumber++
-    playerInputs.push({ sequenceNumber, dx: +SPEED, dy: 0 })
+    playerInputs.push({ sequenceNumber, dx: +SPEED, dy: 0, timestamp: now })
     frontEndPlayers[socket.id].x += SPEED
+    clampPosition(frontEndPlayers[socket.id])
     socket.emit('keydown', { code: 'KeyD', sequenceNumber })
   }
-}, 15)
+
+  // Safety net: drop anything the server never acknowledged within 10s,
+  // so a desynced sequenceNumber can't let this grow forever.
+  const STALE_INPUT_MS = 10000
+  while (
+    playerInputs.length &&
+    now - playerInputs[0].timestamp > STALE_INPUT_MS
+  ) {
+    playerInputs.shift()
+  }
+}, 50)
 
 window.addEventListener('keydown', (e) => {
   if (!frontEndPlayers[socket.id]) return
   switch (e.code) {
     case 'KeyA':
-      // frontEndPlayers[socket.id].x -= 5;
-      // socket.emit("keydown", 'KeyA')
       keys.a.pressed = true
-
       break
-
     case 'KeyS':
-      // frontEndPlayers[socket.id].y += 5;
-      // socket.emit("keydown", 'KeyS')
       keys.s.pressed = true
-
       break
-
     case 'KeyD':
-      // frontEndPlayers[socket.id].x += 5;
-      // socket.emit("keydown", 'KeyD')
       keys.d.pressed = true
-
       break
-
     case 'KeyW':
-      // frontEndPlayers[socket.id].y -= 5;
-      // socket.emit("keydown", 'KeyW')
       keys.w.pressed = true
-
       break
   }
 })
@@ -302,60 +262,27 @@ window.addEventListener('keyup', (e) => {
     case 'KeyA':
       keys.a.pressed = false
       break
-
     case 'KeyS':
       keys.s.pressed = false
       break
-
     case 'KeyD':
       keys.d.pressed = false
       break
-
     case 'KeyW':
       keys.w.pressed = false
       break
   }
 })
 
-// function resizeCanvas() {
-//   const container = document.querySelector('.game-container')
-//   const WORLD_WIDTH = 1024
-//   const WORLD_HEIGHT = 576
-//   const dpr = window.devicePixelRatio || 1
-
-//   canvas.width = WORLD_WIDTH * dpr
-//   canvas.height = WORLD_HEIGHT * dpr
-//   c.scale(dpr, dpr)
-
-//   // expose logical (CSS) size for your game logic to use
-//   canvas.gameWidth = rect.width
-//   canvas.gameHeight = rect.height
-// }
-
-// window.addEventListener('resize', resizeCanvas)
-// window.addEventListener('orientationchange', () =>
-//   setTimeout(resizeCanvas, 100)
-// )
-// resizeCanvas()
 const keyMap = { up: 'w', down: 's', left: 'a', right: 'd' }
 const codeMap = { up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD' }
-let lastDir = { dx: 1, dy: 0 } // default: aim right
-
-const dirVectors = {
-  up: { dx: 0, dy: -1 },
-  down: { dx: 0, dy: 1 },
-  left: { dx: -1, dy: 0 },
-  right: { dx: 1, dy: 0 }
-}
 
 document.querySelectorAll('.dpad-btn').forEach((btn) => {
   const key = keyMap[btn.dataset.dir]
   const code = codeMap[btn.dataset.dir]
-  const dir = dirVectors[btn.dataset.dir]
 
   const press = (e) => {
     e.preventDefault()
-    lastDir = dir
     window.dispatchEvent(new KeyboardEvent('keydown', { key, code }))
   }
   const release = (e) => {
@@ -372,7 +299,7 @@ document.querySelectorAll('.dpad-btn').forEach((btn) => {
 canvas.addEventListener(
   'touchstart',
   (e) => {
-    e.preventDefault() // stops the "ghost click" mobile browsers fire after touch
+    e.preventDefault()
     const touch = e.touches[0]
     fireShot(touch.clientX, touch.clientY)
   },
@@ -381,7 +308,7 @@ canvas.addEventListener(
 
 socket.on('eliminated', ({ killedBy }) => {
   showToast(`💀 You were eliminated by ${killedBy}`, 'danger')
-  document.querySelector('#username-overlay').style.display = 'flex' // fixed: overlay, not form
+  document.querySelector('#username-overlay').style.display = 'flex'
 })
 
 socket.on('killFeed', ({ killer, victim }) => {
@@ -393,27 +320,18 @@ function showToast(message, type = 'info') {
   toast.className = `toast toast-${type}`
   toast.textContent = message
 
-  // Count existing toasts
   const existingToasts = document.querySelectorAll('.toast')
-
-  // Place each new toast below the previous one
   toast.style.top = `${20 + existingToasts.length * 60}px`
 
   document.body.appendChild(toast)
-
-  requestAnimationFrame(() => {
-    toast.classList.add('toast-show')
-  })
+  requestAnimationFrame(() => toast.classList.add('toast-success'))
 
   setTimeout(() => {
-    toast.classList.remove('toast-show')
-
+    toast.classList.remove('toast-success')
     toast.addEventListener(
       'transitionend',
       () => {
         toast.remove()
-
-        // Reposition remaining toasts upward
         document.querySelectorAll('.toast').forEach((t, index) => {
           t.style.top = `${20 + index * 60}px`
         })
@@ -426,11 +344,14 @@ function showToast(message, type = 'info') {
 document.querySelector('#usernameForm').addEventListener('submit', (e) => {
   e.preventDefault()
   document.querySelector('#username-overlay').style.display = 'none'
-  console.log(document.querySelector('#usernameInput').value)
+  const username = document.querySelector('#usernameInput').value.trim()
+
+  if (!username) {
+    showToast('Enter username')
+    return
+  }
   socket.emit('initGame', {
-    username: document.querySelector('#usernameInput').value,
-    width: WORLD_WIDTH,
-    height: WORLD_HEIGHT
+    username
   })
-  showToast(`You joined the Game!!`, 'show')
+  showToast(`You joined the Game!!`, 'success')
 })

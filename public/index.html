@@ -4,7 +4,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>PixelArena · touch controls</title>
+  <title>PixelArena-Shooting Game</title>
+  <meta name="description"
+    content="PixelArena is a fast-paced multiplayer shooting game where players battle in real-time using skill, strategy, and precision. Play online with friends, compete in intense arena matches, and become the ultimate champion." />
+    
+  <link rel="icon" type="image/svg+xml" href="./img/pixelarena_logo.svg">
   <!-- fonts & base styles -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -58,7 +62,7 @@
       pointer-events: none;
     }
 
-    .toast-show {
+    .toast-success {
       opacity: 1;
       transform: translateX(-50%) translateY(0);
     }
@@ -134,17 +138,16 @@
 
     /* ---------- HUD top bar ---------- */
     .top-bar {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
+      width: 80%;
+      max-width: 100vw;
       color: #2f2650;
       padding: 8px 16px;
       font-family: sans-serif;
       font-size: 14px;
       user-select: none;
-      background: rgba(255, 255, 255, 0.55);
-      backdrop-filter: blur(6px);
+      background: rgba(255, 255, 255);
+      border-radius: 12px;
+      margin: 0 12px;
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
@@ -267,7 +270,7 @@
       height: 100%;
       border: none;
       border-radius: 20px;
-      background: rgba(173, 216, 230, 0.25); 
+      background: rgba(173, 216, 230, 0.25);
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
       color: #fff;
@@ -387,7 +390,7 @@
     (pointer: coarse) {
       body {
         padding: 0;
-        gap: 0;
+        gap: 10px;
       }
 
       .touch-controls {
@@ -397,6 +400,7 @@
       .top-bar {
         padding: 8px 12px;
         font-size: 12px;
+        width: 90%;
       }
 
       .leaderboard-title {
@@ -451,20 +455,20 @@
     <img src="./img/pixelarena_logo.svg" alt="PixelArena" class="logo-img" />
     <p class="logo-text">PixelArena</p>
   </div>
-
+  <!-- HUD -->
+  <div class="top-bar">
+    <div class="leaderboard-section">
+      <div class="leaderboard-title">Leaderboard</div>
+      <div id="playerLabels" class="player-labels"></div>
+    </div>
+    <div class="live-section">
+      <p class="live-label">Live <span class="live-dot-wrapper"><span class="live-dot"></span></span></p>
+      <div id="livePlayers" class="live-count">0</div>
+    </div>
+  </div>
   <!-- GAME CONTAINER -->
   <div class="game-container">
-    <!-- HUD -->
-    <div class="top-bar">
-      <div class="leaderboard-section">
-        <div class="leaderboard-title">Leaderboard</div>
-        <div id="playerLabels" class="player-labels"></div>
-      </div>
-      <div class="live-section">
-        <p class="live-label">Live <span class="live-dot-wrapper"><span class="live-dot"></span></span></p>
-        <div id="livePlayers" class="live-count">0</div>
-      </div>
-    </div>
+
 
     <!-- canvas -->
     <canvas></canvas>
